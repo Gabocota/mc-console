@@ -361,8 +361,16 @@ app.post('/mc-console/rm', function (req, res) {
                     "status": "You cant delete the server.js file"
                 })
             }
-            if (fs.existsSync("./" + removeDoubleDotSegments(req.body.path))) {
-                spawn("rm", [removeDoubleDotSegments(req.body.path)]).on("error", (err) => {
+            let folder = false
+            let command = removeDoubleDotSegments(req.body.path)
+            if(command.split(".").length == 1){
+                command = ["-r", "./" + command]
+                folder = true
+            } else {
+                command = ["./" + command]
+            }
+            if (fs.existsSync("./" + removeDoubleDotSegments(req.body.path)) || folder) {
+                spawn("rm", command).on("error", (err) => {
                     console.log(err)
                     return res.json({
                         "status": "Error deleting!"
@@ -393,7 +401,6 @@ app.post('/mc-console/rm', function (req, res) {
         }
     }
 })
-
 app.post('/mc-console/ls', function (req, res) {
     if (new Date().getTime() > lastResponse + 50) {
         lastResponse = new Date().getTime()
