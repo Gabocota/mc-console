@@ -176,8 +176,13 @@ function loadConsole() {
                                 addElements(lines.slice(i + 1), output)
                                 break
                             }
+                            if(i == 0){
+                                addElements(lines, output)
+                            }
                         }
                     }
+                } else {
+                    addElements(lines, output)
                 }
 
                 setTimeout(loadConsole, 1000)
