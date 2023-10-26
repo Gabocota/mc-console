@@ -12,6 +12,8 @@ var invkeymsgcheckerRunning = false
 
 const menuCont = document.getElementById("menuCont")
 
+var smthElse = false //for when something else is on the output
+
 function showMenu() {
     menuCont.style.display = "flex"
     menuCont.style.transform = "translateX(0%)"
@@ -24,6 +26,7 @@ function hideMenu() {
 
 function commandLogShow() {
     var key = document.getElementById("key").value
+    smthElse = true
     fetch('./cl', {
             method: 'POST',
             headers: {
@@ -169,21 +172,24 @@ function loadConsole() {
                 var lines = data.data
                 lines = lines.map(str => str.replace(/[<>]/g, match => `&${match === "<" ? "lt" : "gt"};`));
                 var elems = output.getElementsByTagName('p')
-                if (elems.length != 0) {
-                    if (elems[elems.length - 1].innerHTML != lines[lines.length - 1]) {
-                        for (let i = 98; i >= 0; i--) {
-                            if (lines[i] == elems[elems.length - 1].innerHTML) {
-                                addElements(lines.slice(i + 1), output)
-                                break
-                            }
-                            if(i == 0){
-                                addElements(lines, output)
+                if (!smthElse) {
+                    if (elems.length != 0) {
+                        if (elems[elems.length - 1].innerHTML != lines[lines.length - 1]) {
+                            for (let i = 98; i >= 0; i--) {
+                                if (lines[i] == elems[elems.length - 1].innerHTML) {
+                                    addElements(lines.slice(i + 1), output)
+                                    break
+                                }
+                                if (i == 0) {
+                                    addElements(lines, output)
+                                }
                             }
                         }
+                    } else {
+                        addElements(lines, output)
                     }
-                } else {
-                    addElements(lines, output)
                 }
+
 
                 setTimeout(loadConsole, 1000)
 
@@ -195,7 +201,16 @@ function loadConsole() {
 }
 
 function reloadButton() {
-    reload(document.getElementById("key").value, false)
+    if (smthElse) {
+        smthElse = false
+        document.getElementById("reload").classList.add("spinning")
+        setTimeout(function () {
+            document.getElementById("reload").classList.remove("spinning")
+        }, 1000)
+    } else {
+        reload(document.getElementById("key").value, false)
+
+    }
 }
 
 function reload(key, onLoad) {
@@ -315,23 +330,28 @@ seeDirPathInput.addEventListener('blur', () => {
 var lastKey = ""
 var arrowUp = 0
 document.addEventListener("keydown", function (e) {
-    if (e.code === "Enter") {
-        sendCommand()
-    }
-    if (keys.includes(e.key) && !isInputFocused && valid && window.getSelection().isCollapsed) {
-        inputField.select()
-    }
-    if (e.code === "ArrowUp") {
-        if (lastKey == "ArrowUp") {
-            arrowUp = arrowUp + 1
-        } else {
-            arrowUp = 0
+    if (!smthElse) {
+        if (e.code === "Enter") {
+
+            sendCommand()
+
         }
-        if (pastCommands.length >= arrowUp + 1) {
-            document.getElementById("input").value = pastCommands[(pastCommands.length - 1) - arrowUp]
+        if (keys.includes(e.key) && !isInputFocused && valid && window.getSelection().isCollapsed) {
+            inputField.select()
         }
+        if (e.code === "ArrowUp") {
+            if (lastKey == "ArrowUp") {
+                arrowUp = arrowUp + 1
+            } else {
+                arrowUp = 0
+            }
+            if (pastCommands.length >= arrowUp + 1) {
+                document.getElementById("input").value = pastCommands[(pastCommands.length - 1) - arrowUp]
+            }
+        }
+
+        lastKey = e.code
     }
-    lastKey = e.code
 });
 
 document.getElementById('upload').addEventListener('submit', function (event) {
@@ -420,6 +440,7 @@ function downloadFile() {
 function seeDir() {
     let key = document.getElementById("key").value
     let path = document.getElementById("seeDirPathInput").value
+    smthElse = true
     fetch('/mc-console/ls', {
             method: 'POST',
             headers: {
@@ -437,11 +458,13 @@ function seeDir() {
             } else {
                 document.getElementById("output").innerHTML = ""
                 let items = data.data
-                if(items.length > 0){
-                    for(let i = 0; i < items.length; i++){
-                        document.getElementById("output").innerHTML += "<p>" + items[i] + "</p><br>"
-                        document.getElementById("seeDirPathInput").value = ""
+                if (items.length > 0) {
+                    var toAdd = []
+                    for (let i = 0; i < items.length; i++) {
+                        toAdd.push("<p>" + items[i] + "</p><br>")
                     }
+                    addElements(toAdd, document.getElementById("output"))
+                    document.getElementById("seeDirPathInput").value = ""
                 }
             }
         })
