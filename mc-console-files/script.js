@@ -44,15 +44,16 @@ function commandLogShow() {
                 let output = document.getElementById("output")
                 output.innerHTML = ""
                 var commandLog = data.data
-
-                for (let i = 0; i <= commandLog.length; i++) {
+                var toAdd = []
+                for (let i = 0; i < commandLog.length; i++) {
                     let currentCommand = commandLog[i]
-                    output.innerHTML += "Creator of key: " + currentCommand.creator + "<br>"
-                    output.innerHTML += "Time of creation: " + currentCommand.keyTime + "<br>"
-                    output.innerHTML += "Key: " + currentCommand.key + "<br>"
-                    output.innerHTML += "Time: " + currentCommand.time + "<br>"
-                    output.innerHTML += "Action: " + currentCommand.command + "<br>_<br>"
+                    toAdd.push("Creator of key: " + currentCommand.creator)
+                    toAdd.push("Time of creation: " + currentCommand.keyTime)
+                    toAdd.push("Key: " + currentCommand.key)
+                    toAdd.push("Time: " + currentCommand.time)
+                    toAdd.push("Action: " + currentCommand.command + "<br>")
                 }
+                addElements(toAdd, output)
             }
         })
         .catch(error => {
@@ -374,6 +375,8 @@ document.getElementById('upload').addEventListener('submit', function (event) {
         .then(data => {
             if (data.status !== "success") {
                 invkey(data.status);
+            } else {
+                document.getElementById("fileInput").value = ""
             }
         })
         .catch(error => {
@@ -461,7 +464,7 @@ function seeDir() {
                 if (items.length > 0) {
                     var toAdd = []
                     for (let i = 0; i < items.length; i++) {
-                        toAdd.push("<p>" + items[i] + "</p><br>")
+                        toAdd.push(items[i])
                     }
                     addElements(toAdd, document.getElementById("output"))
                     document.getElementById("seeDirPathInput").value = ""
