@@ -12,31 +12,29 @@ var minecraftServerProcess;
 
 var cache = []
 
-var allowed = ['PASTE_YOUR_DISCORD_USER_ID_HERE']
+var allowed = ['YOUR_DISCORD_USER_ID']
 
-var highestAdmin = 'PASTE_YOUR_DISCORD_USER_ID_HERE'
-
-const webServerDir = "/var/www/main/" //paste where the website is stored from /
+var HIGHEST_ADMIN = 'YOUR_DISCORD_USER_ID'
 
 var keys = []
 
 var oldKeys = []
 
-const keyLen = 30
+const KEY_LENGTH = 30
 
-const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$^%&()-+=;"\',.?[]{}';
+const CHARS_IN_KEYS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$^%&()-+=;"\',.?[]{}';
 
-const keyDuration = 300
+const KEY_DURATION = 300
 
-const commandLogFile = "./command-log.json"
+const COMMAND_LOG_PATH = "./command-log.json"
 
-const disToken = "PASTE_YOUR_DISCORD_BOT_TOKEN_HERE"
+const WHITELIST_CHANNEL = "ID_OF_WHITELIST_CHANNEL"
 
-const website = "https://gabocota.net/" //put where the site is stored here (include / at the end)
+const disToken = "DISCORD_BOT_TOKEN"
 
-if (!fs.existsSync(commandLogFile)) {
-    fs.writeFileSync(commandLogFile, "[]", 'utf-8');
-    console.log(`File '${commandLogFile}' created.`);
+if (!fs.existsSync(COMMAND_LOG_PATH)) {
+    fs.writeFileSync(COMMAND_LOG_PATH, JSON.stringify([], null, 2), 'utf-8');
+    console.log(`File '${COMMAND_LOG_PATH}' created.`);
 }
 
 function readJson(filePath) {
@@ -83,7 +81,7 @@ function writeOldKeys() {
         output += "Created: " + new Date(oldKeys[i].epoch) + "\n"
         output += '----------------\n'
     }
-    fs.writeFile(webServerDir + 'mc-console/oldkeys/oldkeys.txt', output, err => {
+    fs.writeFile('/var/www/main/mc-console/oldkeys/oldkeys.txt', output, err => {
         if (err) {
             console.error(err);
         }
@@ -92,8 +90,8 @@ function writeOldKeys() {
 
 function genKey(creator, atem) {
     var result = ""
-    for (let i = 0; i < keyLen; i++) {
-        result += characters.charAt(Math.floor(Math.random() * characters.length))
+    for (let i = 0; i < KEY_LENGTH; i++) {
+        result += CHARS_IN_KEYS.charAt(Math.floor(Math.random() * CHARS_IN_KEYS.length))
     }
     var key = {
         'owner': creator,
@@ -112,7 +110,7 @@ function genKey(creator, atem) {
                     writeOldKeys()
                 }
             }
-        }, keyDuration * 1000)
+        }, KEY_DURATION * 1000)
     }
     return key
 }
@@ -122,12 +120,8 @@ function log(data) {
 }
 
 function startMinecraftServer() {
-    minecraftServerProcess = spawn('java', [
-        '-Xmx10G',
-        '-Xms10G',
-        '-jar',
-        'server.jar',
-        'nogui'
+    minecraftServerProcess = spawn('bash', [
+        'run.sh'
     ], {
         detached: true,
         stdio: ['pipe', 'pipe', 'pipe']
@@ -142,6 +136,16 @@ function startMinecraftServer() {
     minecraftServerProcess.stdout.on('data', log);
 }
 
+function whitelist(username, message){
+    try{
+        minecraftServerProcess.stdin.write("whitelist add " + username + "\n")
+        message.reply("Player " + username + " has been added to the whitelist")
+        return
+    } catch {
+        message.reply("Error adding " + username + " to whitelist. Message the admin.")
+    }
+}
+
 
 var app = require('express')();
 app.use(require('body-parser').json());
@@ -152,14 +156,14 @@ app.use(require('body-parser').urlencoded({
 app.get('/mc-console/', (req, res) => {
     if (new Date().getTime() > lastResponse + 50) {
         lastResponse = new Date().getTime()
-        res.sendFile(path.join(webServerDir + 'mc-console', 'index.html'));
+        res.sendFile(path.join('/var/www/main/mc-console', 'index.html'));
     }
 });
 
 app.get('/mc-console/oldkeys', (req, res) => {
     if (new Date().getTime() > lastResponse + 50) {
         lastResponse = new Date().getTime()
-        res.sendFile(path.join(webServerDir + 'mc-console/oldkeys/', 'oldkeys.txt'));
+        res.sendFile(path.join('/var/www/main/mc-console/oldkeys/', 'oldkeys.txt'));
     }
 });
 
@@ -242,9 +246,9 @@ app.post('/mc-console/api', function (req, res) {
                     "command": req.body.command.replace(/</g, '&lt;').replace(/>/g, '&gt;'),
                     "time": new Date()
                 }
-                var commands = readJson(commandLogFile)
+                var commands = readJson(COMMAND_LOG_PATH)
                 commands.push(commandToLog)
-                writeJson(commands, commandLogFile)
+                writeJson(commands, COMMAND_LOG_PATH)
             }
         } else {
             res.json({
@@ -260,7 +264,7 @@ app.post('/mc-console/cl', function (req, res) {
         if (checkKeyMatch(req.body.key)) {
             res.json({
                 "status": "success",
-                "data": readJson(commandLogFile)
+                "data": readJson(COMMAND_LOG_PATH)
             })
         } else {
             res.json({
@@ -292,11 +296,11 @@ app.post('/mc-console/down', function (req, res) {
                 "command": "Downloaded: " + (req.body.path),
                 "time": new Date()
             }
-            var commands = readJson(commandLogFile)
+            var commands = readJson(COMMAND_LOG_PATH)
             commands.push(commandToLog)
-            writeJson(commands, commandLogFile)
+            writeJson(commands, COMMAND_LOG_PATH)
         } else {
-            res.sendFile(webServerDir + "mc-console-files/invalidKey.html")
+            res.sendFile("/var/www/main/mc-console-files/invalidKey.html")
         }
     }
 })
@@ -336,9 +340,9 @@ app.post("/mc-console/up", (req, res, next) => {
                 "command": "Uploaded: " + filePath,
                 "time": new Date()
             }
-            var commands = readJson(commandLogFile)
+            var commands = readJson(COMMAND_LOG_PATH)
             commands.push(commandToLog)
-            writeJson(commands, commandLogFile)
+            writeJson(commands, COMMAND_LOG_PATH)
         });
     } else {
         return res.json({
@@ -361,16 +365,8 @@ app.post('/mc-console/rm', function (req, res) {
                     "status": "You cant delete the server.js file"
                 })
             }
-            let folder = false
-            let command = removeDoubleDotSegments(req.body.path)
-            if(command.split(".").length == 1){
-                command = ["-r", "./" + command]
-                folder = true
-            } else {
-                command = ["./" + command]
-            }
-            if (fs.existsSync("./" + removeDoubleDotSegments(req.body.path)) || folder) {
-                spawn("rm", command).on("error", (err) => {
+            if (fs.existsSync("./" + removeDoubleDotSegments(req.body.path))) {
+                spawn("rm", [removeDoubleDotSegments(req.body.path)]).on("error", (err) => {
                     console.log(err)
                     return res.json({
                         "status": "Error deleting!"
@@ -386,9 +382,9 @@ app.post('/mc-console/rm', function (req, res) {
                     "command": "Deleted: " + removeDoubleDotSegments(req.body.path),
                     "time": new Date()
                 }
-                var commands = readJson(commandLogFile)
+                var commands = readJson(COMMAND_LOG_PATH)
                 commands.push(commandToLog)
-                writeJson(commands, commandLogFile)
+                writeJson(commands, COMMAND_LOG_PATH)
             } else {
                 res.json({
                     "status": "File doesnt exist"
@@ -401,6 +397,7 @@ app.post('/mc-console/rm', function (req, res) {
         }
     }
 })
+
 app.post('/mc-console/ls', function (req, res) {
     if (new Date().getTime() > lastResponse + 50) {
         lastResponse = new Date().getTime()
@@ -419,9 +416,9 @@ app.post('/mc-console/ls', function (req, res) {
                     "command": "Saw: " + removeDoubleDotSegments(req.body.path),
                     "time": new Date()
                 }
-                var commands = readJson(commandLogFile)
+                var commands = readJson(COMMAND_LOG_PATH)
                 commands.push(commandToLog)
-                writeJson(commands, commandLogFile)
+                writeJson(commands, COMMAND_LOG_PATH)
             } else {
                 res.json({
                     "status": "File doesnt exist"
@@ -457,7 +454,7 @@ discord.on("messageCreate", message => {
     if (message.author.bot) return
     if (message.content.toLowerCase().split(" ")[0] == "]add") {
         try {
-            if (message.author.id == highestAdmin) {
+            if (message.author.id == HIGHEST_ADMIN) {
                 var allow = message.content.split(" ")[1].split("@")[1].split(">")[0]
                 allow.split("&")[1] == "" ? allow = allow.split("&")[1] : true
                 allowed.push(allow)
@@ -470,7 +467,7 @@ discord.on("messageCreate", message => {
     }
     if (message.content.toLowerCase().split(" ")[0] == "]remove") {
         try {
-            if (message.author.id == highestAdmin) {
+            if (message.author.id == HIGHEST_ADMIN) {
                 allowed.pop(message.content.split(" ")[1].split("@")[1].split(">")[0])
             } else {
                 message.reply("Youre not allowed to do that")
@@ -483,7 +480,7 @@ discord.on("messageCreate", message => {
         if (allowed.includes(message.author.id)) {
             let request = message.content.toLowerCase().trim() + " lol" //dont want an exception 
             if (message.content.toLowerCase().split(" ")[1] == "atem") {
-                if (message.author.id == highestAdmin) {
+                if (message.author.id == HIGHEST_ADMIN) {
                     message.author.send("Your key is: ")
                     message.author.send(genKey(message.author.username, true).value)
                     message.author.send("it'll last you forever.")
@@ -493,7 +490,7 @@ discord.on("messageCreate", message => {
             } else {
                 message.author.send("Your key is: ")
                 message.author.send(genKey(message.author.username, false).value)
-                message.author.send("it'll last for " + (keyDuration > 60 ? keyDuration / 60 + " minutes." : keyDuration + " seconds.").toString())
+                message.author.send("it'll last for " + (KEY_DURATION > 60 ? KEY_DURATION / 60 + " minutes." : KEY_DURATION + " seconds.").toString())
             }
         } else {
             message.reply("You're not allowed to do that")
@@ -507,7 +504,7 @@ discord.on("messageCreate", message => {
         }
     }
     if (message.content.toLowerCase() == "]keys") {
-        if (message.author.id == highestAdmin) {
+        if (message.author.id == HIGHEST_ADMIN) {
             let output = "Keys:\n----------------\n"
             for (let i = 0; i < keys.length; i++) {
                 output += "Value: " + keys[i].value + "\n"
@@ -521,14 +518,14 @@ discord.on("messageCreate", message => {
         }
     }
     if (message.content.toLowerCase() == "]oldkeys") {
-        if (message.author.id == highestAdmin) {
-            message.author.send(website + "mc-console/oldkeys")
+        if (message.author.id == HIGHEST_ADMIN) {
+            message.author.send("https://gabocota.net/mc-console/oldkeys")
         } else {
             message.reply("You're not allowed to do that")
         }
     }
     if (message.content.toLowerCase() == "]startserver") {
-        if (message.author.id == highestAdmin) {
+        if (message.author.id == HIGHEST_ADMIN) {
             startMinecraftServer()
         } else {
             message.reply("You're not allowed to do that")
@@ -552,6 +549,17 @@ discord.on("messageCreate", message => {
         } else {
             message.reply("You're not allowed to do that")
         }
+    }
+    if (message.content.toLowerCase().split(" ")[0] == "]whitelist") {
+        if(message.content.split(" ").length == 1){
+            message.reply("Please provide a username")
+            return
+        }
+        if (message.channel.id != WHITELIST_CHANNEL) {
+            message.reply("Send in the correct channel please")
+            return
+        }
+        whitelist(message.content.split(" ")[1], message)
     }
 });
 
