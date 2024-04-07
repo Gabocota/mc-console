@@ -1,17 +1,10 @@
 const output = document.getElementById('output')
-
 var pastCommands = []
-
 var valid = false
-
 var automaticScrolling = true
-
 var invkeymsgDisappear = 0
-
 var invkeymsgcheckerRunning = false
-
 const menuCont = document.getElementById("menuCont")
-
 var smthElse = false //for when something else is on the output
 
 function showMenu() {
@@ -190,10 +183,7 @@ function loadConsole() {
                         addElements(lines, output)
                     }
                 }
-
-
                 setTimeout(loadConsole, 1000)
-
             }
         })
         .catch(error => {
@@ -210,7 +200,6 @@ function reloadButton() {
         }, 1000)
     } else {
         reload(document.getElementById("key").value, false)
-
     }
 }
 
@@ -223,7 +212,7 @@ function reload(key, onLoad) {
                 },
                 body: JSON.stringify({
                     key: key,
-                    command: "loadUp", //very important
+                    command: "loadUp",
                     log: true
                 })
             })
@@ -333,9 +322,7 @@ var arrowUp = 0
 document.addEventListener("keydown", function (e) {
     if (!smthElse) {
         if (e.code === "Enter") {
-
             sendCommand()
-
         }
         if (keys.includes(e.key) && !isInputFocused && valid && window.getSelection().isCollapsed) {
             inputField.select()
@@ -350,7 +337,6 @@ document.addEventListener("keydown", function (e) {
                 document.getElementById("input").value = pastCommands[(pastCommands.length - 1) - arrowUp]
             }
         }
-
         lastKey = e.code
     }
 });
@@ -361,6 +347,11 @@ document.getElementById('upload').addEventListener('submit', function (event) {
     const fileInput = document.getElementById("fileInput").files[0];
     const key = document.getElementById("key").value;
     const path = document.getElementById("pathInput").value;
+
+    if (typeof fileInput == undefined) {
+        invkey("no file :/")
+        return
+    }
 
     const formData = new FormData();
     formData.append("file", fileInput);
@@ -414,6 +405,7 @@ function downloadFile() {
     let key = document.getElementById("key").value
     let path = document.getElementById("downloadPathInput").value
     let fileName = path.split("/").length == 0 ? "error" : path.split("/")[path.split("/").length - 1]
+
     fetch('/mc-console/down', {
             method: 'POST',
             headers: {
@@ -424,19 +416,36 @@ function downloadFile() {
                 "path": path
             })
         })
-        .then(response => response.blob())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok')
+            }
+            return response.json()
+        })
+        .then(data => {
+            if (data.status === "success") {
+                return response.blob()
+            } else {
+                throw new Error(data.status)
+            }
+        })
         .then(blob => {
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
+            const url = window.URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
             a.download = fileName
-            a.style.display = 'none';
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
+            a.style.display = 'none'
+            document.body.appendChild(a)
+            a.click()
+            window.URL.revokeObjectURL(url)
         })
         .catch(error => {
-            console.error('Error:', error);
+            console.error('Error:', error.message)
+            if (error.message === "Please provide a filename" || error.message === "You can't download the server.js file") {
+                invkey(error.message)
+            } else {
+                invkey("An error occurred while processing your request. Please try again later.")
+            }
         });
 }
 
@@ -476,6 +485,6 @@ function seeDir() {
         });
 }
 
-if (decodeURIComponent(document.cookie) != "invalid") {
+if (decodeURIComponent(document.cookie) != "invalid" && decodeURIComponent(document.cookie) != "") {
     reload(decodeURIComponent(document.cookie), true)
 }
