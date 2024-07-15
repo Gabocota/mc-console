@@ -3,27 +3,16 @@ var path = require('path')
 const fs = require('fs')
 const multer = require('multer')
 
-const WEB_SERVER_LOCATION = "WHERE_IN_THE_MACHINE_IS_THE_WEB_SERVER"
+const CONFIG_FILE = "mc-console-config.json"
 
-var lastResponse = new Date().getTime()
+var config
+
+var allowed
+
 var minecraftServerProcess
-var cache = []
-var allowed = ['YOUR_DISCORD_USER_ID']
-var HIGHEST_ADMIN = 'YOUR_DISCORD_USER_ID'
+var cache = ["no lines yet"]
 var keys = []
 var oldKeys = []
-const KEY_LENGTH = 30
-const CHARS_IN_KEYS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$^%&()-+=;"\',.?[]{}'
-const KEY_DURATION = 300
-const COMMAND_LOG_PATH = "./command-log.json"
-const WHITELIST_CHANNEL = "ID_OF_WHITELIST_CHANNEL"
-const disToken = "DISCORD_BOT_TOKEN"
-const DOMAIN = "THE_DOMAIN_OF_THE_PUBLIC_SITE"
-
-if (!fs.existsSync(COMMAND_LOG_PATH)) {
-    fs.writeFileSync(COMMAND_LOG_PATH, JSON.stringify([], null, 2), 'utf-8')
-    console.log(`File '${COMMAND_LOG_PATH}' created.`)
-}
 
 function readJson(filePath) {
     const jsonData = fs.readFileSync(filePath, 'utf-8')
@@ -33,6 +22,18 @@ function readJson(filePath) {
 function writeJson(data, filePath) {
     var jsonData = JSON.stringify(data, null, 2)
     fs.writeFileSync(filePath, jsonData, 'utf-8')
+}
+
+function loadSettings(){
+    config = readJson(CONFIG_FILE)
+    allowed = config.allowed
+}
+
+loadSettings()
+
+if (!fs.existsSync(config.command_log_path)) {
+    fs.writeFileSync(config.command_log_path, JSON.stringify([], null, 2), 'utf-8')
+    console.log(`File '${config.command_log_path}' created.`)
 }
 
 function checkKeyMatch(target) {
@@ -69,7 +70,7 @@ function writeOldKeys() {
         output += "Created: " + new Date(oldKeys[i].epoch) + "\n"
         output += '----------------\n'
     }
-    fs.writeFile(WEB_SERVER_LOCATION + 'mc-console/oldkeys/oldkeys.txt', output, err => {
+    fs.writeFile(`${__dirname}/webfiles/oldkeys.txt`, output, err => {
         if (err) {
             console.error(err)
         }
@@ -78,8 +79,8 @@ function writeOldKeys() {
 
 function genKey(creator, atem) {
     var result = ""
-    for (let i = 0; i < KEY_LENGTH; i++) {
-        result += CHARS_IN_KEYS.charAt(Math.floor(Math.random() * CHARS_IN_KEYS.length))
+    for (let i = 0; i < config.key_length; i++) {
+        result += config.chars_in_keys.charAt(Math.floor(Math.random() * config.chars_in_keys.length))
     }
     var key = {
         'owner': creator,
@@ -98,7 +99,7 @@ function genKey(creator, atem) {
                     writeOldKeys()
                 }
             }
-        }, KEY_DURATION * 1000)
+        }, config.key_duration * 1000)
     }
     return key
 }
@@ -165,19 +166,33 @@ function attemptStart(res) {
 
 var app = require('express')()
 app.use(require('body-parser').json())
-app.use(require('body-parser').urlencoded({
-    extended: false
-}))
 
-app.get('/mc-console/', (req, res) => {
-    res.sendFile(path.join(WEB_SERVER_LOCATION + 'mc-console', 'index.html'))
+
+app.get("/", (req, res) => {
+    res.sendFile(`${__dirname}/webfiles/index.html`)
 })
 
-app.get('/mc-console/oldkeys', (req, res) => {
-    res.sendFile(path.join(WEB_SERVER_LOCATION + 'mc-console/oldkeys/', 'oldkeys.txt'))
+app.get("/style.css", (req, res) => {
+    res.sendFile(`${__dirname}/webfiles/style.css`)
 })
 
-app.post('/mc-console/api', function (req, res) {
+app.get("/script.js", (req, res) => {
+    res.sendFile(`${__dirname}/webfiles/script.js`)
+})
+
+app.get("/reload.svg", (req, res) => {
+    res.sendFile(`${__dirname}/webfiles/reload.svg`)
+})
+
+app.get("/menu.svg", (req, res) => {
+    res.sendFile(`${__dirname}/webfiles/menu.svg`)
+})
+
+app.get("/oldkeys", (req, res) => {
+    res.sendFile(`oldkeys.txt`)
+})
+
+app.post('/api', function (req, res) {
     if (!checkKeyMatch(req.body.key)) {
         res.json({
             "status": "Invalid key!"
@@ -233,12 +248,12 @@ app.post('/mc-console/api', function (req, res) {
         "command": req.body.command.replace(/</g, '&lt;').replace(/>/g, '&gt;'),
         "time": new Date()
     }
-    var commands = readJson(COMMAND_LOG_PATH)
+    var commands = readJson(config.command_log_path)
     commands.push(commandToLog)
-    writeJson(commands, COMMAND_LOG_PATH)
+    writeJson(commands, config.command_log_path)
 })
 
-app.post('/mc-console/cl', function (req, res) {
+app.post('/cl', function (req, res) {
     if (!checkKeyMatch(req.body.key)) {
         res.json({
             "status": "Invalid key!"
@@ -247,11 +262,11 @@ app.post('/mc-console/cl', function (req, res) {
     }
     res.json({
         "status": "success",
-        "data": readJson(COMMAND_LOG_PATH)
+        "data": readJson(config.command_log_path)
     })
 })
 
-app.post('/mc-console/down', function (req, res) {
+app.post('/down', function (req, res) {
     if (checkKeyMatch(req.body.key)) {
         if (req.body.path == "") {
             return res.json({
@@ -263,6 +278,11 @@ app.post('/mc-console/down', function (req, res) {
                 "status": "You cant download the server.js file"
             })
         }
+        if (req.body.path.split("/")[req.body.path.split("/").length - 1] == CONFIG_FILE) {
+            return res.json({
+                "status": "You cant download the config file"
+            })
+        }
         res.sendFile(path.join(__dirname, removeDoubleDotSegments(req.body.path)))
         var commandToLog = {
             "keyTime": new Date(keys[getKeyN(req.body.key)].epoch),
@@ -271,11 +291,11 @@ app.post('/mc-console/down', function (req, res) {
             "command": "Downloaded: " + (req.body.path),
             "time": new Date()
         }
-        var commands = readJson(COMMAND_LOG_PATH)
+        var commands = readJson(config.command_log_path)
         commands.push(commandToLog)
-        writeJson(commands, COMMAND_LOG_PATH)
+        writeJson(commands, config.command_log_path)
     } else {
-        res.sendFile(WEB_SERVER_LOCATION + "mc-console-files/invalidKey.html")
+        res.sendFile(`${__dirname}/webfiles/invalidKey.html`)
     }
 })
 
@@ -284,7 +304,7 @@ const upload = multer({
     storage: storage
 })
 
-app.post("/mc-console/up", (req, res, next) => {
+app.post("/up", (req, res, next) => {
     next()
 }, upload.single("file"), (req, res) => {
     const fileBuffer = req.file.buffer
@@ -314,9 +334,9 @@ app.post("/mc-console/up", (req, res, next) => {
                 "command": "Uploaded: " + filePath,
                 "time": new Date()
             }
-            var commands = readJson(COMMAND_LOG_PATH)
+            var commands = readJson(config.command_log_path)
             commands.push(commandToLog)
-            writeJson(commands, COMMAND_LOG_PATH)
+            writeJson(commands, config.command_log_path)
         })
     } else {
         return res.json({
@@ -325,7 +345,7 @@ app.post("/mc-console/up", (req, res, next) => {
     }
 })
 
-app.post('/mc-console/rm', function (req, res) {
+app.post('/rm', function (req, res) {
     if (!checkKeyMatch(req.body.key)) {
         return res.json({
             "status": "Invalid key!"
@@ -362,12 +382,12 @@ app.post('/mc-console/rm', function (req, res) {
         "command": "Deleted: " + removeDoubleDotSegments(req.body.path),
         "time": new Date()
     }
-    var commands = readJson(COMMAND_LOG_PATH)
+    var commands = readJson(config.command_log_path)
     commands.push(commandToLog)
-    writeJson(commands, COMMAND_LOG_PATH)
+    writeJson(commands, config.command_log_path)
 })
 
-app.post('/mc-console/ls', function (req, res) {
+app.post('/ls', function (req, res) {
     if (!checkKeyMatch(req.body.key)) {
         return res.json({
             "status": "Invalid key!"
@@ -391,9 +411,9 @@ app.post('/mc-console/ls', function (req, res) {
         "command": "Saw: " + removeDoubleDotSegments(req.body.path),
         "time": new Date()
     }
-    var commands = readJson(COMMAND_LOG_PATH)
+    var commands = readJson(config.command_log_path)
     commands.push(commandToLog)
-    writeJson(commands, COMMAND_LOG_PATH)
+    writeJson(commands, config.command_log_path)
 })
 
 
@@ -418,7 +438,7 @@ discord.on("messageCreate", message => {
     if (message.author.bot) return
     if (message.content.toLowerCase().split(" ")[0] == "]add") {
         try {
-            if (message.author.id != HIGHEST_ADMIN) {
+            if (message.author.id != config.highest_admin) {
                 message.reply("Youre not allowed to do that")
                 return
             }
@@ -431,7 +451,7 @@ discord.on("messageCreate", message => {
     }
     if (message.content.toLowerCase().split(" ")[0] == "]remove") {
         try {
-            if (message.author.id != HIGHEST_ADMIN) {
+            if (message.author.id != config.highest_admin) {
                 message.reply("Youre not allowed to do that")
                 return
             }
@@ -446,7 +466,7 @@ discord.on("messageCreate", message => {
             return
         }
         if (message.content.toLowerCase().split(" ")[1] == "atem") {
-            if (message.author.id != HIGHEST_ADMIN) {
+            if (message.author.id != config.highest_admin) {
                 message.reply("You're not allowed to do that")
                 return
             }
@@ -457,9 +477,10 @@ discord.on("messageCreate", message => {
         }
         message.author.send("Your key is: ")
         message.author.send(genKey(message.author.username, false).value)
-        message.author.send("it'll last for " + (KEY_DURATION > 60 ? KEY_DURATION / 60 + " minutes." : KEY_DURATION + " seconds.").toString())
+        message.author.send("it'll last for " + (config.key_duration > 60 ? config.key_duration / 60 + " minutes." : config.key_duration + " seconds.").toString())
         return
     }
+    
 
     if (message.content.toLowerCase() == "]allowed") {
         if (!allowed.includes(message.author.id)) {
@@ -469,7 +490,7 @@ discord.on("messageCreate", message => {
         message.author.send("Allowed users: " + allowed)
     }
     if (message.content.toLowerCase() == "]keys") {
-        if (message.author.id != HIGHEST_ADMIN) {
+        if (message.author.id != config.highest_admin) {
             message.reply("You're not allowed to do that")
             return
         }
@@ -484,15 +505,15 @@ discord.on("messageCreate", message => {
         return
     }
     if (message.content.toLowerCase() == "]oldkeys") {
-        if (message.author.id != HIGHEST_ADMIN) {
+        if (message.author.id != config.highest_admin) {
             message.reply("You're not allowed to do that")
             return
         }
-        message.author.send("https://" + DOMAIN + "/mc-console/oldkeys")
+        message.author.send("https://" + config.domain + "/oldkeys")
         return
     }
     if (message.content.toLowerCase() == "]startserver") {
-        if (message.author.id != HIGHEST_ADMIN) {
+        if (message.author.id != config.highest_admin) {
             message.reply("You're not allowed to do that")
             return
         }
@@ -521,7 +542,7 @@ discord.on("messageCreate", message => {
         return
     }
     if (message.content.toLowerCase().split(" ")[0] == "]whitelist") {
-        if (message.channel.id != WHITELIST_CHANNEL) {
+        if (message.channel.id != config.whitelist_channel) {
             message.reply("Send in the correct channel please")
             return
         }
@@ -534,4 +555,4 @@ discord.on("messageCreate", message => {
     }
 })
 
-discord.login(disToken)
+discord.login(config.discord_bot_token)

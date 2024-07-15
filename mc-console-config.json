@@ -1,0 +1,11 @@
+{
+    "allowed":["your discord user id"],
+    "highest_admin": "your discord user id",
+    "key_length": 30,
+    "chars_in_keys": "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$^%&()-+=;",
+    "key_duration": 600,
+    "command_log_path": "./command-log.json",
+    "whitelist_channel": "the whitelist channel id",
+    "discord_bot_token": "your token here",
+    "domain": "gabocota.net"
+}
