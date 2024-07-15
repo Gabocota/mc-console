@@ -139,8 +139,29 @@ function addElements(data, output) {
     }
 }
 
+function getCookie(name) {
+    let nameEQ = name + "=";
+    let ca = document.cookie.split(';');
+    for (let i = 0; i < ca.length; i++) {
+        let c = ca[i];
+        while (c.charAt(0) == ' ') c = c.substring(1, c.length);
+        if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length, c.length);
+    }
+    return null;
+}
+
+function setCookie(name, value, days) {
+    let expires = "";
+    if (days) {
+        const date = new Date();
+        date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+        expires = "; expires=" + date.toUTCString();
+    }
+    document.cookie = name + "=" + (value || "") + expires + "; path=/; SameSite=None; Secure";
+}
+
 function loadConsole() {
-    var key = document.getElementById("key").value
+    var key = document.getElementById("key").value;
     fetch('./api', {
             method: 'POST',
             headers: {
@@ -155,35 +176,35 @@ function loadConsole() {
         .then(response => response.json())
         .then(data => {
             if (data.status != "success") {
-                document.cookie = (encodeURIComponent("invalid"))
-                invkey(data.status)
-                showInvalidScreen()
-                document.getElementById("output").innerHTML = ""
-                document.getElementById("key").value = ""
-                valid = false
+                setCookie("key", encodeURIComponent("invalid"), 1);
+                invkey(data.status);
+                showInvalidScreen();
+                document.getElementById("output").innerHTML = "";
+                document.getElementById("key").value = "";
+                valid = false;
             } else {
-                valid = true
-                var lines = data.data
+                valid = true;
+                var lines = data.data;
                 lines = lines.map(str => str.replace(/[<>]/g, match => `&${match === "<" ? "lt" : "gt"};`));
-                var elems = output.getElementsByTagName('p')
+                var elems = output.getElementsByTagName('p');
                 if (!smthElse) {
                     if (elems.length != 0) {
                         if (elems[elems.length - 1].innerHTML != lines[lines.length - 1]) {
                             for (let i = 98; i >= 0; i--) {
                                 if (lines[i] == elems[elems.length - 1].innerHTML) {
-                                    addElements(lines.slice(i + 1), output)
-                                    break
+                                    addElements(lines.slice(i + 1), output);
+                                    break;
                                 }
                                 if (i == 0) {
-                                    addElements(lines, output)
+                                    addElements(lines, output);
                                 }
                             }
                         }
                     } else {
-                        addElements(lines, output)
+                        addElements(lines, output);
                     }
                 }
-                setTimeout(loadConsole, 1000)
+                setTimeout(loadConsole, 1000);
             }
         })
         .catch(error => {
@@ -220,7 +241,7 @@ function reload(key, onLoad) {
             .then(data => {
                 if (data.status != "success") {
                     if (onLoad) {
-                        document.cookie = encodeURIComponent("invalid")
+                        setCookie("key", encodeURIComponent("invalid"), 1);
                     }
                     invkey(data.status)
                     valid = false
@@ -230,7 +251,7 @@ function reload(key, onLoad) {
                     }, 1000)
                 } else {
                     if (!onLoad) {
-                        document.cookie = encodeURIComponent(key)
+                        setCookie("key", encodeURIComponent(key), 1);
                     } else {
                         document.getElementById("key").value = key
                     }
@@ -402,9 +423,9 @@ function deleteFile() {
 }
 
 function downloadFile() {
-    let key = document.getElementById("key").value
-    let path = document.getElementById("downloadPathInput").value
-    let fileName = path.split("/").length == 0 ? "error" : path.split("/")[path.split("/").length - 1]
+    let key = document.getElementById("key").value;
+    let path = document.getElementById("downloadPathInput").value;
+    let fileName = path.split("/").length == 0 ? "error" : path.split("/")[path.split("/").length - 1];
 
     fetch('down', {
             method: 'POST',
@@ -418,30 +439,34 @@ function downloadFile() {
         })
         .then(response => {
             if (!response.ok) {
-                throw new Error('Network response was not ok')
+                throw new Error('Network response was not ok');
             }
-            return response.json()
-        })
-        .then(data => {
-            if (data.status === "success") {
-                return response.blob()
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                return response.json().then(data => {
+                    if (data.status === "success") {
+                        throw new Error('Unexpected JSON response with status "success"');
+                    } else {
+                        throw new Error(data.status);
+                    }
+                });
             } else {
-                throw new Error(data.status)
+                return response.blob();
             }
         })
         .then(blob => {
-            const url = window.URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = fileName
-            a.style.display = 'none'
-            document.body.appendChild(a)
-            a.click()
-            window.URL.revokeObjectURL(url)
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
         })
         .catch(error => {
-            console.error('Error:', error.message)
-            invkey(error.message)
+            console.error('Error:', error.message);
+            invkey(error.message);
         });
 }
 
@@ -481,6 +506,6 @@ function seeDir() {
         });
 }
 
-if (decodeURIComponent(document.cookie) != "invalid" && decodeURIComponent(document.cookie) != "") {
-    reload(decodeURIComponent(document.cookie), true)
+if (decodeURIComponent(getCookie("key")) != "invalid" && decodeURIComponent(getCookie("key")) != "") {
+    reload(decodeURIComponent(getCookie("key")), true)
 }
