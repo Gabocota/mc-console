@@ -189,7 +189,7 @@ app.get("/menu.svg", (req, res) => {
 })
 
 app.get("/oldkeys", (req, res) => {
-    res.sendFile(`oldkeys.txt`)
+    res.sendFile(`${__dirname}/webfiles/oldkeys.txt`)
 })
 
 app.post('/api', function (req, res) {
