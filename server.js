@@ -361,6 +361,11 @@ app.post('/rm', function (req, res) {
             "status": "You cant delete the server.js file"
         })
     }
+    if (req.body.path.split("/")[req.body.path.split("/").length - 1] == CONFIG_FILE) {
+        return res.json({
+            "status": "You cant delete the config file"
+        })
+    }
     if (!fs.existsSync("./" + removeDoubleDotSegments(req.body.path))) {
         return res.json({
             "status": "File doesnt exist"
