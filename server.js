@@ -283,6 +283,11 @@ app.post('/down', function (req, res) {
                 "status": "You cant download the config file"
             })
         }
+        if (req.body.path.split("/")[req.body.path.split("/").length - 1] == "run.sh") {
+            return res.json({
+                "status": "You cant download the bash run file"
+            })
+        }
         res.sendFile(path.join(__dirname, removeDoubleDotSegments(req.body.path)))
         var commandToLog = {
             "keyTime": new Date(keys[getKeyN(req.body.key)].epoch),
@@ -316,6 +321,11 @@ app.post("/up", (req, res, next) => {
         if (fileName == "server.js") {
             return res.json({
                 "status": "You cant overwrite the server.js file"
+            })
+        }
+        if (fileName == "run.sh") {
+            return res.json({
+                "status": "You cant overwrite the run.sh file"
             })
         }
         fs.writeFile(filePath, fileBuffer, (writeErr) => {
