@@ -174,6 +174,7 @@ function shutDownMinecraftServer(callback) {
 function log(data) {
     data = data.toString()
     // check if failed to start
+    console.log(data)
     if (data.split("[")[2].split("]")[1] == "main/ERROR" && data.split("net.minecraft.util.DirectoryLock$LockException")[1]) {
         cache.push("DETECTED OTHER SERVER INSTANCE, KILLING IT")
         shutDownMinecraftServer((err) => {
