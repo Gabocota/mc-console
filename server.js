@@ -24,7 +24,7 @@ function writeJson(data, filePath) {
     fs.writeFileSync(filePath, jsonData, 'utf-8')
 }
 
-function loadSettings(){
+function loadSettings() {
     config = readJson(CONFIG_FILE)
     allowed = config.allowed
 }
@@ -104,8 +104,87 @@ function genKey(creator, atem) {
     return key
 }
 
+function getServerPort(callback) {
+    const server_properties_loc = './server.properties'
+    fs.readFile(server_properties_loc, 'utf8', (err, data) => {
+        if (err) {
+            caches.push('Error reading server.properties:', err)
+            return callback(err)
+        }
+
+        const portMatch = data.match(/^server-port=(\d+)$/m)
+        if (portMatch) {
+            const port = portMatch[1]
+            cache.push('Found server port:', port)
+            return callback(null, port)
+        } else {
+            caches.push('server-port not found in server.properties')
+            return callback(new Error('server-port not found'))
+        }
+    })
+}
+
+function getPidByPort(port, callback) {
+    exec(`lsof -i :${port} -t`, (err, stdout, stderr) => {
+        if (err || stderr) {
+            caches.push('Error finding process PID:', stderr || err)
+            return callback(err || stderr)
+        }
+
+        const pid = stdout.trim()
+        if (pid) {
+            cache.push('Found PID:', pid)
+            return callback(null, pid)
+        } else {
+            caches.push('No process found for port:', port)
+            return callback(new Error('No process found for port'))
+        }
+    })
+}
+
+function sendSigintToProcess(pid, callback) {
+    exec(`kill -SIGINT ${pid}`, (err, stdout, stderr) => {
+        if (err || stderr) {
+            caches.push('Error sending SIGINT:', stderr || err)
+            return callback(err || stderr)
+        }
+
+        cache.push('Successfully sent SIGINT to PID', pid)
+        return callback(null)
+    })
+}
+
+function shutDownMinecraftServer(callback) {
+    getServerPort((err, port) => {
+        if (err) return callback(err)
+
+        getPidByPort(port, (err, pid) => {
+            if (err) return callback(err)
+
+            sendSigintToProcess(pid, (err) => {
+                if (err) return callback(err)
+
+                cache.push('Minecraft server shutdown initiated.')
+                return callback(null)
+            })
+        })
+    })
+}
+
 function log(data) {
-    cache.push(data.toString())
+    data = data.toString()
+    // check if failed to start
+    if (data.split("[")[2].split("]")[1] == "main/ERROR" && data.split("net.minecraft.util.DirectoryLock$LockException")[1]) {
+        cache.push("DETECTED OTHER SERVER INSTANCE, KILLING IT")
+        shutDownMinecraftServer((err) => {
+            if (err) {
+              cache.push('Failed to shut down Minecraft server:', err);
+            } else {
+              cache.push('Minecraft server shut down successfully.\nRun start again please.');
+            }
+        });
+    }
+    cache.push(data)
 }
 
 function startMinecraftServer() {
@@ -433,7 +512,7 @@ app.post('/ls', function (req, res) {
 
 
 
-app.listen(3001, () => {})
+app.listen(config.port, () => {})
 
 const {
     Client,
@@ -495,7 +574,7 @@ discord.on("messageCreate", message => {
         message.author.send("it'll last for " + (config.key_duration > 60 ? config.key_duration / 60 + " minutes." : config.key_duration + " seconds.").toString())
         return
     }
-    
+
 
     if (message.content.toLowerCase() == "]allowed") {
         if (!allowed.includes(message.author.id)) {

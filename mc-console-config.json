@@ -7,5 +7,6 @@
     "command_log_path": "./command-log.json",
     "whitelist_channel": "the whitelist channel id",
     "discord_bot_token": "your token here",
-    "domain": "gabocota.net"
+    "domain": "gabocota.net",
+    "port": "the port its going to be the webserver"
 }
