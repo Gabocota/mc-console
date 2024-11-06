@@ -109,17 +109,17 @@ function getServerPort(callback) {
     const server_properties_loc = './server.properties'
     fs.readFile(server_properties_loc, 'utf8', (err, data) => {
         if (err) {
-            caches.push('Error reading server.properties:', err)
+            console.log('Error reading server.properties:', err)
             return callback(err)
         }
 
         const portMatch = data.match(/^server-port=(\d+)$/m)
         if (portMatch) {
             const port = portMatch[1]
-            cache.push('Found server port:', port)
+            console.log('Found server port:', port)
             return callback(null, port)
         } else {
-            caches.push('server-port not found in server.properties')
+            console.log('server-port not found in server.properties')
             return callback(new Error('server-port not found'))
         }
     })
@@ -128,29 +128,29 @@ function getServerPort(callback) {
 function getPidByPort(port, callback) {
     exec(`lsof -i :${port} -t`, (err, stdout, stderr) => {
         if (err || stderr) {
-            caches.push('Error finding process PID:', stderr || err)
+            console.log('Error finding process PID:', stderr || err)
             return callback(err || stderr)
         }
 
         const pid = stdout.trim()
         if (pid) {
-            cache.push('Found PID:', pid)
+            console.log('Found PID:', pid)
             return callback(null, pid)
         } else {
-            caches.push('No process found for port:', port)
+            console.log('No process found for port:', port)
             return callback(new Error('No process found for port'))
         }
     })
 }
 
 function sendSigintToProcess(pid, callback) {
-    exec(`kill -SIGINT ${pid}`, (err, stdout, stderr) => {
+    exec(`kill -2 ${pid}`, (err, stdout, stderr) => {
         if (err || stderr) {
-            caches.push('Error sending SIGINT:', stderr || err)
+            console.log('Error sending SIGINT:', stderr || err)
             return callback(err || stderr)
         }
 
-        cache.push('Successfully sent SIGINT to PID', pid)
+        console.log('Successfully sent SIGINT to PID', pid)
         return callback(null)
     })
 }
@@ -165,7 +165,7 @@ function shutDownMinecraftServer(callback) {
             sendSigintToProcess(pid, (err) => {
                 if (err) return callback(err)
 
-                cache.push('Minecraft server shutdown initiated.')
+                console.log('Minecraft server shutdown initiated.')
                 return callback(null)
             })
         })
@@ -176,13 +176,14 @@ function log(data) {
     data = data.toString()
     // check if failed to start
     try {
-        if (data.split("[")[2].split("]")[0] == "main/ERROR" && data.split("net.minecraft.util.DirectoryLock$LockException")[1]) {
-            cache.push("DETECTED OTHER SERVER INSTANCE, KILLING IT")
+        if (data.split("[")[2].split("]")[0] == "main/ERROR" && (data.split("net.minecraft.util.DirectoryLock$LockException")[1] || data.split("net.minecraftforge.fml.LoadingFailedException")[1])) {
+            console.log("start failed.\n fixing...")
             shutDownMinecraftServer((err) => {
                 if (err) {
-                    cache.push('Failed to shut down Minecraft server:', err);
+                    console.log('Failed to shut down Minecraft server:', err);
                 } else {
-                    cache.push('Minecraft server shut down successfully.\nRun start again please.');
+                    console.log('headless minecraft server shut down successfully.\n');
+                    startMinecraftServer()
                 }
             });
         }
