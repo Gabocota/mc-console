@@ -175,7 +175,7 @@ function log(data) {
     data = data.toString()
     // check if failed to start
     try {
-        if (data.split("[")[2].split("]")[1] == "main/ERROR" && data.split("net.minecraft.util.DirectoryLock$LockException")[1]) {
+        if (data.split("[")[2].split("]")[0] == "main/ERROR" && data.split("net.minecraft.util.DirectoryLock$LockException")[1]) {
             cache.push("DETECTED OTHER SERVER INSTANCE, KILLING IT")
             shutDownMinecraftServer((err) => {
                 if (err) {
